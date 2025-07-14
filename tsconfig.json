@@ -5,8 +5,11 @@
     "paths": {
       "@/*": [
         "./*"
-      ]
-    }
+      ],
+    },
+    "typeRoots": [
+    "./node_modules/@webgpu/types"
+    ]
   },
   "include": [
     "**/*.ts",
