@@ -1,21 +1,18 @@
-import { Triangle } from "@/components/Triangle"
-import { SafeAreaView, StyleSheet, Text } from "react-native"
+import { Triangle } from "@/components/Triangle";
+import { SafeAreaView, StyleSheet } from "react-native";
 
 const Doodle = () => {
   return (
-    <SafeAreaView style={{flex: 1}}>
-      <Text style={styles.whiteText}>mreow</Text>
+    <SafeAreaView style={{ flex: 1 }}>
       <Triangle />
     </SafeAreaView>
-  )
-}
-
+  );
+};
 
 const styles = StyleSheet.create({
   whiteText: {
-    color: "#ffffff"
-  }
-})
+    color: "#ffffff",
+  },
+});
 
-
-export default Doodle
+export default Doodle;

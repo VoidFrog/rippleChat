@@ -41,8 +41,8 @@
     "react-native-webview": "13.13.5",
     "react-native-wgpu": "^0.2.0",
     "server": "^1.0.41",
-    "typegpu": "^0.5.9",
-    "unplugin-typegpu": "^0.1.4"
+    "typegpu": "^0.6.0",
+    "unplugin-typegpu": "^0.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
