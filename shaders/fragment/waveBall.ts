@@ -33,7 +33,8 @@ const waveBall = tgpu["~unstable"].fragmentFn({
 
   // const check = sin(time*freq)*uv.x*uv.y < 0.1 || sin(time*freq)*uv.x*uv.y > 0.3;
   // const check = uv.x*uv.y < 0.2*sin(time);
-  // const check = uv.x*uv.x + 4*uv.y*uv.y < 1.0 + sin(30*time*uv.x*uv.y); // fancy twinkling circle
+  // const check =
+  // uv.x * uv.x + 4 * uv.y * uv.y < 1.0 + std.sin(30 * time * uv.x * uv.y); // fancy twinkling circle
   // const check = dst+uv.y < 0.1+sin(10*time*uv.x) && uv.y*uv.y+uv.x*uv.x > dst-0.1;
   const check =
     dst + uv.y < 0.1 + std.sin(10 * time * uv.x) &&
