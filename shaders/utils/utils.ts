@@ -187,6 +187,88 @@ export const perlinNoise = tgpu.fn(
   );
 });
 
+export const v2mod289 = tgpu.fn(
+  [d.vec2f],
+  d.vec2f
+)((v2) => {
+  return std.sub(v2, std.mul(std.floor(std.mul(v2, 1.0 / 289.0)), 289.0));
+});
+
+export const v3mod289 = tgpu.fn(
+  [d.vec3f],
+  d.vec3f
+)((v3) => {
+  return std.sub(v3, std.mul(std.floor(std.mul(v3, 1.0 / 289.0)), 289.0));
+});
+
+export const permute = tgpu.fn(
+  [d.vec3f],
+  d.vec3f
+)((v3) => {
+  return v3mod289(std.mul(std.add(std.mul(v3, 34.0), 1.0), v3));
+});
+
+export const snoise = tgpu.fn(
+  [d.vec2f],
+  d.f32
+)((v) => {
+  const c = d.vec4f(
+    0.211324865405187,
+    // (3.0-sqrt(3.0))/6.0
+    0.366025403784439,
+    // 0.5*(sqrt(3.0)-1.0)
+    -0.577350269189626,
+    // -1.0 + 2.0 * C.x
+    0.024390243902439
+    // 1.0 / 41.0
+  );
+
+  let i = std.floor(std.add(v, std.dot(v, c.yy)));
+  const x0 = std.add(std.sub(v, i), std.dot(i, c.xx));
+
+  let i1 = d.vec2f(0.0);
+  i1 = std.select(d.vec2f(0.0, 1.0), d.vec2f(1.0, 0.0), x0.x > x0.y);
+  let x1 = std.sub(std.add(x0.xy, c.xx), i1);
+  let x2 = std.add(x0.xy, c.zz);
+
+  // Do some permutations to avoid
+  // truncation effects in permutation
+  i = v2mod289(i);
+  const p = permute(
+    std.add(
+      std.add(permute(std.add(i.y, d.vec3f(0.0, i1.y, 1.0))), i.x),
+      d.vec3f(0.0, i1.x, 1.0)
+    )
+  );
+
+  let m = std.max(
+    std.sub(0.5, d.vec3f(std.dot(x0, x0), std.dot(x1, x1), std.dot(x2, x2))),
+    d.vec3f(0.0)
+  );
+
+  m = std.mul(m, m);
+  m = std.mul(m, m);
+
+  let x = std.sub(std.mul(2.0, std.fract(std.mul(p, c.www))), 1.0);
+  let h = std.sub(std.abs(x), 0.5);
+  let ox = std.floor(std.add(x, 0.5));
+  let a0 = std.sub(x, ox);
+
+  // Normalise gradients implicitly by scaling m
+  // Approximation of: m *= inversesqrt(a0*a0 + h*h);
+  const a0_h_2 = std.add(std.mul(a0, a0), std.mul(h, h));
+  m = std.mul(m, std.sub(1.79284291400159, std.mul(0.85373472095314, a0_h_2)));
+
+  // Compute final noise value at P
+  let g = d.vec3f(0.0);
+  g.x = a0.x * x0.x + h.x * x0.y;
+  const g_yz = std.add(
+    std.mul(a0.yz, d.vec2f(x1.x, x2.x)),
+    std.mul(h.yz, d.vec2f(x1.y, x2.y))
+  );
+  return 130.0 * std.dot(m, d.vec3f(g.x, g_yz));
+});
+
 export const plotShape = tgpu.fn(
   [d.vec3f, d.vec4f],
   d.vec3f
@@ -197,6 +279,17 @@ export const plotShape = tgpu.fn(
 export const timePosBindGroupLayout = tgpu.bindGroupLayout({
   time: { uniform: d.f32 },
   fingerPosition: { uniform: d.vec2f },
+});
+
+export const rippleSchema = d.struct({
+  timeStart: d.f32,
+  ttl: d.f32,
+  r: d.f32,
+  center: d.vec2f,
+});
+
+export const rippleBindGroupLayout = tgpu.bindGroupLayout({
+  ripple: { uniform: rippleSchema },
 });
 
 export const resolutionBindGroupLayout = tgpu.bindGroupLayout({
