@@ -11,7 +11,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { captureRef } from "react-native-view-shot";
 import { Canvas, useDevice, useGPUContext } from "react-native-wgpu";
 import { TgpuRoot, TgpuTexture } from "typegpu";
@@ -40,6 +40,7 @@ export default function HomeScreen() {
   const timeStart = performance.now();
   const [showInteractableUI, setShowInteractableUI] = useState<boolean>(true);
   const resetInteractibilityRef = useRef<number>(null);
+  const insets = useSafeAreaInsets();
 
   const addMessage = (newMessage: string) => {
     setMessageHistory((prev) => [...prev, newMessage]);
@@ -68,7 +69,7 @@ export default function HomeScreen() {
     try {
       const uri = await captureRef(viewRef, {
         format: "png",
-        quality: 0.5,
+        // quality: 0.5,
       });
       console.log("snapshot: SUCCESS");
       setImageURI(uri);
@@ -106,7 +107,10 @@ export default function HomeScreen() {
 
     console.log("bitmap machen");
 
-    const [imgWidth, imgHeight] = [imageBitmap.width, imageBitmap.height];
+    const [imgWidth, imgHeight] = [
+      brokenImageBitmap.width,
+      brokenImageBitmap.height,
+    ];
 
     const texture = root["~unstable"]
       .createTexture({
@@ -120,7 +124,7 @@ export default function HomeScreen() {
 
     setTexture(texture);
     root.device.queue.copyExternalImageToTexture(
-      { source: imageBitmap },
+      { source: brokenImageBitmap },
       { texture: root.unwrap(texture) },
       [imgWidth, imgHeight]
     );
@@ -244,8 +248,8 @@ export default function HomeScreen() {
   }, [root, device, context, presentationFormat, texture, wWidth, wHeight]);
 
   return (
-    <SafeAreaView
-      style={{ flex: 1 }}
+    <View
+      style={{ flex: 1, paddingTop: insets.top }}
       onTouchStart={(ev) => {
         fingerPositionValue[0] = ev.nativeEvent.pageX / wWidth;
         fingerPositionValue[1] = ev.nativeEvent.pageY / wHeight;
@@ -262,7 +266,6 @@ export default function HomeScreen() {
       {...panResponder.panHandlers}
     >
       <View ref={viewRef} style={styles.mainContainer}>
-        <View style={styles.padTop}></View>
         <View style={styles.rowContainer}>
           <View style={styles.circle}></View>
           <Text style={styles.textWhite}>mreow</Text>
@@ -316,12 +319,13 @@ export default function HomeScreen() {
       <Canvas
         ref={ref}
         style={{
-          aspectRatio: wWidth / wHeight,
+          aspectRatio: wWidth / (wHeight + 80),
           ...styles.absolute,
+          top: insets.top,
         }}
         transparent
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -366,7 +370,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     width: "100%",
-    opacity: 0.7,
+    opacity: 0.3,
   },
   mainContainer: {
     flex: 1,
@@ -374,11 +378,6 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     backgroundColor: "#1a1a2e",
-  },
-  padTop: {
-    paddingTop: "10%",
-    minWidth: "100%",
-    backgroundColor: "#292A3A",
   },
   rowContainer: {
     minWidth: "100%",
