@@ -319,7 +319,7 @@ export default function HomeScreen() {
       <Canvas
         ref={ref}
         style={{
-          aspectRatio: wWidth / (wHeight + 80),
+          aspectRatio: wWidth / (wHeight - insets.top),
           ...styles.absolute,
           top: insets.top,
         }}
@@ -368,9 +368,11 @@ const styles = StyleSheet.create({
   absolute: {
     position: "absolute",
     left: 0,
+    right: 0,
     top: 0,
+    bottom: 0,
     width: "100%",
-    opacity: 0.3,
+    opacity: 1.0,
   },
   mainContainer: {
     flex: 1,
