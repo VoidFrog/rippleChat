@@ -52,9 +52,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="doodle"
         options={{
-          title: "doodle",
+          title: "Doodle",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="triangle.circle.fill" color={color} />
+            <IconSymbol
+              size={28}
+              name="chevron.left.forwardslash.chevron.right"
+              color={color}
+            />
           ),
         }}
       />

@@ -1,10 +1,10 @@
-import { Triangle } from "@/components/Triangle";
+import { FullscreenShader } from "@/components/fullscreenShader";
 import { SafeAreaView, StyleSheet } from "react-native";
 
 const Doodle = () => {
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <Triangle />
+      <FullscreenShader />
     </SafeAreaView>
   );
 };

@@ -1,12 +1,12 @@
 import { getOrInitRoot } from "@/scripts/roots";
-import { noiseFragment } from "@/shaders/fragment/chaotic";
+import { noiseWithRippleFragment } from "@/shaders/fragment/chaotic";
+import * as utils from "@/shaders/utils/utils";
 import basicVertex from "@/shaders/vertex/basicVertex";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Dimensions, SafeAreaView, View } from "react-native";
 import { Canvas, useDevice, useGPUContext } from "react-native-wgpu";
 import { TgpuRoot } from "typegpu";
 import * as d from "typegpu/data";
-import * as utils from "../shaders/utils/utils";
 
 const fingerPositionValue = [0, 0];
 const rippleValues = {
@@ -16,7 +16,17 @@ const rippleValues = {
   center: [0, 0],
 };
 
-export function Triangle() {
+interface rippleProps {
+  forceRipple?: boolean;
+  posX?: number;
+  posY?: number;
+}
+
+export const FullscreenShader: React.FC<rippleProps> = ({
+  forceRipple,
+  posX,
+  posY,
+}) => {
   const frameRef = useRef<number | null>(null);
   const panResponder = utils.useTouchAndDragPanResponder(fingerPositionValue);
 
@@ -24,23 +34,29 @@ export function Triangle() {
   const { device = null } = useDevice();
   const root = device ? getOrInitRoot(device) : null;
   const { ref, context } = useGPUContext();
+  const timeStart = performance.now();
 
   const wHeight = Dimensions.get("window").height - 80;
   const wWidth = Dimensions.get("window").width;
-
-  useLayoutEffect(() => {});
 
   useEffect(() => {
     if (!root || !device || !context) {
       return;
     }
+
+    if (forceRipple && posX && posY) {
+      rippleValues.center = [posX / wWidth, posY / wHeight];
+      fingerPositionValue[0] = posX / wWidth;
+      fingerPositionValue[1] = posY / wHeight;
+      console.log("frag", forceRipple, fingerPositionValue);
+    }
+
     context.configure({
       device: device,
       format: presentationFormat,
       alphaMode: "premultiplied",
     });
 
-    const timeStart = performance.now();
     const { time, fingerPosition, rippleBuffer } = createBuffers(
       root,
       timeStart,
@@ -70,7 +86,7 @@ export function Triangle() {
 
     const pipeline = root["~unstable"]
       .withVertex(basicVertex, {})
-      .withFragment(noiseFragment, {
+      .withFragment(noiseWithRippleFragment, {
         format: presentationFormat,
       })
       .createPipeline()
@@ -79,25 +95,28 @@ export function Triangle() {
       .with(utils.rippleBindGroupLayout, rippleBindGroup);
 
     const render = () => {
-      console.log(
-        (performance.now() - timeStart) / 1000.0,
-        rippleValues.timeStart,
-        performance.now()
-      );
+      // console.log(
+      //   performance.now() / 1000.0 - rippleValues.timeStart,
+      //   rippleValues.timeStart,
+      //   performance.now() / 1000.0
+      // );
 
-      time.write(d.f32((performance.now() - timeStart) / 1000.0));
+      time.write(d.f32(performance.now() / 1000.0));
       fingerPosition.write(
         d.vec2f(fingerPositionValue[0], fingerPositionValue[1])
       );
+
       if (
-        rippleValues.center[0] !== fingerPositionValue[0] &&
-        rippleValues.center[1] !== fingerPositionValue[1]
+        (rippleValues.center[0] !== fingerPositionValue[0] &&
+          rippleValues.center[1] !== fingerPositionValue[1]) ||
+        forceRipple
       ) {
         rippleValues.center[0] = fingerPositionValue[0];
         rippleValues.center[1] = fingerPositionValue[1];
 
+        rippleValues.timeStart = performance.now() / 1000.0;
         rippleBuffer.write({
-          timeStart: d.f32(performance.now() - timeStart),
+          timeStart: d.f32(rippleValues.timeStart),
           ttl: rippleValues.ttl,
           r: rippleValues.r,
           center: d.vec2f(rippleValues.center[0], rippleValues.center[1]),
@@ -121,7 +140,7 @@ export function Triangle() {
     return () => {
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
     };
-  }, [root, device, context, presentationFormat]);
+  }, [root, device, context, presentationFormat, forceRipple, posX, posY]);
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -129,7 +148,6 @@ export function Triangle() {
         onTouchStart={(ev) => {
           fingerPositionValue[0] = ev.nativeEvent.pageX / wWidth;
           fingerPositionValue[1] = ev.nativeEvent.pageY / wHeight;
-          rippleValues.timeStart = performance.now() / 1000;
           console.log(rippleValues.center, "rippleValues");
         }}
         {...panResponder.panHandlers}
@@ -144,7 +162,7 @@ export function Triangle() {
       </View>
     </SafeAreaView>
   );
-}
+};
 
 const createBuffers = (
   root: TgpuRoot,

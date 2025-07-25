@@ -296,6 +296,11 @@ export const resolutionBindGroupLayout = tgpu.bindGroupLayout({
   resolution: { uniform: d.vec2f },
 });
 
+export const textureBindGroupLayout = tgpu.bindGroupLayout({
+  texture: { texture: "float", dimension: "2d", sampleType: "float" },
+  sampler: { sampler: "filtering" },
+});
+
 export const useTouchAndDragPanResponder = (fingerPositionValue: number[]) => {
   return useRef(
     PanResponder.create({
@@ -309,7 +314,8 @@ export const useTouchAndDragPanResponder = (fingerPositionValue: number[]) => {
         fingerPositionValue[0] =
           evt.nativeEvent.pageX / Dimensions.get("window").width;
         fingerPositionValue[1] =
-          evt.nativeEvent.pageY / Dimensions.get("window").height;
+          evt.nativeEvent.pageY / (Dimensions.get("window").height - 80);
+        //this -80 comes from the tab bar, change to getting the measurements of that component (maybe?) instead in the future
         console.log(fingerPositionValue);
       },
       onPanResponderRelease: () => {

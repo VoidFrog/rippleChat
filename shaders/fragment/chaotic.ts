@@ -3,7 +3,7 @@ import * as d from "typegpu/data";
 import * as std from "typegpu/std";
 import * as utils from "../utils/utils";
 
-export const noiseFragment = tgpu["~unstable"].fragmentFn({
+export const noiseWithRippleFragment = tgpu["~unstable"].fragmentFn({
   in: { uv: d.vec2f, position: d.builtin.position },
   out: d.vec4f,
 })((input) => {
@@ -34,30 +34,48 @@ export const noiseFragment = tgpu["~unstable"].fragmentFn({
 
   const center = std.sub(std.mul(ripple.center, scale), 0.5 * scale);
   const toCenter = std.distance(center, std.sub(st, std.mul(0.5, scale)));
-  let rippleEffect = d.f32(std.sin(std.mul(toCenter - elapsedTime, 10.0)));
+  let rippleEffect = d.f32(
+    std.sin(std.mul(std.pow(toCenter, 1.4) - elapsedTime, 10.0))
+  );
 
-  const fadeFactor = std.clamp(1.0 - elapsedTime / ripple.ttl / 10, 0.0, 1.0);
+  const fadeFactor = d.f32(
+    std.clamp(1.0 - std.pow(elapsedTime + 1.0, 4) / ripple.ttl, 0.0, 1.0)
+  );
+
   rippleEffect = std.mul(rippleEffect, std.exp(-0.3 * toCenter));
   rippleEffect = std.mul(rippleEffect, fadeFactor);
 
   //this makes the ripples around the shader
-  if (fadeFactor > 0.999999) {
-    const rippleCutout = utils.smoothstep(0.0, 1.0, rippleEffect * 2.0);
-    rippleEffect = std.mul(rippleEffect, rippleCutout);
-  }
+  const rippleCutout =
+    utils.smoothstep(0.0, 1.0, rippleEffect * fadeFactor) * (1 - toCenter);
+  rippleEffect = std.mul(rippleEffect, rippleCutout);
 
-  const ripplePower = std.mul(d.vec2f(rippleEffect, rippleEffect), 0.15);
-  st = std.add(st, ripplePower);
+  const ripplePower = std.mul(
+    d.vec2f(rippleEffect, rippleEffect),
+    fadeFactor * (1.0 - std.pow(toCenter + 0.01, -1))
+  );
+  st = std.add(st, std.mul(ripplePower, fadeFactor));
 
   // let color = d.vec3f(utils.perlinNoise(std.add(st, time / 10)) + offset);
   let color = d.vec3f(utils.perlinNoise(std.add(st, offset)));
   // let color = d.vec3f(utils.snoise(std.add(st, offset)));
-  color = std.add(color, 0.1);
+  // color = std.add(color, 0.1);
 
   color = std.mix(
     d.vec3f(1.0, 0.0, 0.0),
     color,
     std.abs(std.sin(color.x * color.y)) + 0.4
+  );
+
+  //wacky color stuff---------------
+  const redOffset = 0.02 * offset * utils.perlinNoise(st);
+  const greenOffset = 0.04;
+  const blueOfffset = -redOffset;
+
+  color.x = std.add(color.x, std.mul(toCenter, d.vec2f(redOffset))).x;
+  color.y = std.add(color.y, std.mul(toCenter, d.vec2f(greenOffset))).y;
+  color.z = std.length(
+    std.add(color.z, std.mul(toCenter, d.vec2f(blueOfffset))).xy
   );
 
   color = std.mix(
@@ -68,13 +86,5 @@ export const noiseFragment = tgpu["~unstable"].fragmentFn({
 
   let color2 = d.vec3f(utils.perlinNoise(utils.random2(color.xy)));
   color = std.mix(color, color2, 0.1);
-
-  // let rippleColor = d.vec3f(std.sin(1 - toCenter));
-  // const pct =
-  //   utils.smoothstep(0.0, ripple.r, toCenter) -
-  //   utils.smoothstep(ripple.r, 1.0, toCenter);
-
-  // color = std.mix(color, rippleColor, pct);
-
   return d.vec4f(color, 1.0);
 });
