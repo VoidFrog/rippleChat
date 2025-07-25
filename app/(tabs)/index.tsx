@@ -1,9 +1,10 @@
-import { reactLogoImage } from "@/assets/imgExports";
+import { reactLogoImage, screenImage } from "@/assets/imgExports";
 import MessageComponent from "@/components/MessageComponent";
 import { getOrInitRoot } from "@/scripts/roots";
 import { textureExampleFragment } from "@/shaders/fragment/textureExample";
 import * as utils from "@/shaders/utils/utils";
 import textureVertex from "@/shaders/vertex/textureVertex";
+import { Asset } from "expo-asset";
 import { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
@@ -37,6 +38,8 @@ export default function HomeScreen() {
   const inputRef = useRef<TextInput | null>(null);
   const sendButtonRef = useRef<View | null>(null);
   const timeStart = performance.now();
+  const [showInteractableUI, setShowInteractableUI] = useState<boolean>(true);
+  const resetInteractibilityRef = useRef<number>(null);
 
   const addMessage = (newMessage: string) => {
     setMessageHistory((prev) => [...prev, newMessage]);
@@ -53,22 +56,56 @@ export default function HomeScreen() {
 
   const [texture, setTexture] = useState<TgpuTexture | null>(null);
 
-  const [imageURI, setImageURI] = useState<string | null>(reactLogoImage);
+  const [imageURI, setImageURI] = useState<string | null>(null);
   const viewRef = useRef<View | null>(null);
 
   const wHeight = Dimensions.get("window").height - 80;
   const wWidth = Dimensions.get("window").width;
 
-  const setupTextureDynamic = async () => {
-    await takeSnapshot();
-    if (!imageURI || !root) return;
+  const takeSnapshot = async () => {
+    if (!viewRef.current || !root) return;
 
-    console.log("setting up");
+    try {
+      const uri = await captureRef(viewRef, {
+        format: "png",
+        quality: 0.5,
+      });
+      console.log("snapshot: SUCCESS");
+      setImageURI(uri);
+    } catch (error) {
+      console.error("snapshot: FAILED\n", error);
+    }
+  };
 
-    const response = await fetch(imageURI);
-    console.log("1");
+  const loadImageAsTexture = async (imageURI: string) => {
+    if (!root) return;
+
+    const asset = Asset.fromModule(screenImage);
+    await asset.downloadAsync();
+    const fileUri = asset.localUri || asset.uri;
+
+    console.log("uri", fileUri, imageURI);
+    console.log("screenImage: ", screenImage);
+
+    const ast = Asset.fromURI(imageURI);
+    await asset.downloadAsync();
+    const brokenFileUri = ast.localUri || asset.uri;
+
+    console.log("broken asset URI: ", brokenFileUri);
+
+    const response = await fetch(fileUri);
+    const brokenResponse = await fetch(brokenFileUri);
+
     const blob = await response.blob();
-    const imageBitmap = await createImageBitmap(blob);
+    const brokenBlob = await brokenResponse.blob();
+
+    console.log(blob.type, brokenBlob.type);
+
+    // const imageBitmap = await createImageBitmap(blob);
+    const brokenImageBitmap = await createImageBitmap(brokenBlob);
+
+    console.log("bitmap machen");
+
     const [imgWidth, imgHeight] = [imageBitmap.width, imageBitmap.height];
 
     const texture = root["~unstable"]
@@ -78,7 +115,8 @@ export default function HomeScreen() {
       })
       .$usage("sampled", "render");
 
-    console.log("texture set", texture, root.unwrap(texture));
+    console.log("before loading texture");
+    // console.log(texture, root.unwrap(texture));
 
     setTexture(texture);
     root.device.queue.copyExternalImageToTexture(
@@ -86,55 +124,24 @@ export default function HomeScreen() {
       { texture: root.unwrap(texture) },
       [imgWidth, imgHeight]
     );
-  };
 
-  const setupTextureStatic = async () => {};
-
-  const updateTexture = async () => {
-    if (!imageURI || !root || !texture) return;
-
-    const response = await fetch(imageURI);
-    const blob = await response.blob();
-    const imageBitmap = await createImageBitmap(blob);
-    const [imgWidth, imgHeight] = [imageBitmap.width, imageBitmap.height];
-
-    root.device.queue.copyExternalImageToTexture(
-      { source: imageBitmap },
-      { texture: root.unwrap(texture) },
-      [imgWidth, imgHeight]
-    );
-  };
-
-  const takeSnapshot = async () => {
-    console.log("attempting snapshot");
-    if (!viewRef.current || !root) return;
-    try {
-      const uri = await captureRef(viewRef.current, { format: "png" });
-      setImageURI(uri);
-      await updateTexture();
-      console.log("snapshot successful", uri);
-    } catch {
-      console.error("snapshot failed");
-    }
+    console.log("rawr");
   };
 
   useEffect(() => {
-    if (!root || !device) return;
-    // takeSnapshot();
-    setupTextureDynamic();
-    // const timer = setInterval(() => {
-    // takeSnapshot();
-    //   console.log("aaa");
-    // }, 200);
-
-    // return () => clearInterval(timer);
+    takeSnapshot();
   }, [root, device, context]);
 
   useEffect(() => {
-    console.log("a");
-    console.log("c", root, context, texture);
-    if (!root || !device || !context || !texture) return;
-    console.log("b");
+    if (!root || !device || !imageURI) return;
+    console.log(imageURI);
+    loadImageAsTexture(imageURI);
+  }, [root, device, imageURI]);
+
+  useEffect(() => {
+    if (!root || !device || !context || !texture) {
+      return;
+    }
 
     context.configure({
       device: device,
@@ -226,6 +233,8 @@ export default function HomeScreen() {
 
       context.present();
       frameRef.current = requestAnimationFrame(render);
+      // takeSnapshot();
+      // if (imageURI) loadImageAsTexture(root, setTexture, imageURI);
     };
 
     frameRef.current = requestAnimationFrame(render);
@@ -241,6 +250,14 @@ export default function HomeScreen() {
         fingerPositionValue[0] = ev.nativeEvent.pageX / wWidth;
         fingerPositionValue[1] = ev.nativeEvent.pageY / wHeight;
         console.log(rippleValues.center, "rippleValues");
+        setShowInteractableUI(false);
+
+        if (resetInteractibilityRef.current)
+          clearTimeout(resetInteractibilityRef.current);
+        resetInteractibilityRef.current = setTimeout(
+          () => setShowInteractableUI(true),
+          1500
+        );
       }}
       {...panResponder.panHandlers}
     >
@@ -274,16 +291,21 @@ export default function HomeScreen() {
               onChangeText={setInputValue}
               placeholder="Type a message..."
               placeholderTextColor="#D8D8D8"
-              style={styles.inputField}
+              style={[
+                styles.inputField,
+                showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
+              ]}
               showSoftInputOnFocus={true}
               onFocus={() => inputRef.current?.focus()}
             />
             <TouchableOpacity
               ref={sendButtonRef}
-              style={styles.sendButton}
+              style={[
+                styles.sendButton,
+                showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
+              ]}
               onPress={() => {
                 handleSendMessage(inputValue, setInputValue, addMessage);
-                if (!sendButtonRef.current) return;
               }}
             >
               <Text style={styles.sendButtonText}>Send</Text>
@@ -344,7 +366,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     width: "100%",
-    opacity: 0.2,
+    opacity: 0.7,
   },
   mainContainer: {
     flex: 1,
