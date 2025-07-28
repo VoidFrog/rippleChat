@@ -10,8 +10,6 @@ const MessageComponent: React.FC<MessageComponentProps> = ({
   message,
   isNewestMessage,
 }) => {
-  console.log(isNewestMessage);
-
   return (
     <View
       style={[

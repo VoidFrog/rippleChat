@@ -34,20 +34,7 @@ const rippleValues = {
 };
 
 export default function HomeScreen() {
-  const [messageHistory, setMessageHistory] = useState<string[]>([
-    "a",
-    "a",
-    "a",
-    "a",
-    "a",
-    "a",
-    "a",
-    "a",
-    "a",
-    "a",
-    "a",
-    "a",
-  ]);
+  const [messageHistory, setMessageHistory] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState<string>("");
   const inputRef = useRef<TextInput | null>(null);
   const sendButtonRef = useRef<View | null>(null);
@@ -89,7 +76,6 @@ export default function HomeScreen() {
         format: "png",
         // quality: 0.5,
       });
-      // console.log("snapshot: SUCCESS");
       setImageURI(uri);
     } catch (error) {
       console.error("snapshot: FAILED\n", error);
@@ -116,17 +102,12 @@ export default function HomeScreen() {
       })
       .$usage("sampled", "render");
 
-    console.log("before loading texture");
-    // console.log(texture, root.unwrap(texture));
-
     setTexture(texture);
     root.device.queue.copyExternalImageToTexture(
       { source: imageBitmap },
       { texture: root.unwrap(texture) },
       [imgWidth, imgHeight]
     );
-
-    console.log("rawr");
   };
 
   const updateTexture = async (imageURI: string) => {
@@ -153,7 +134,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!root || !device || !imageURI) return;
-    console.log(imageURI);
+
     if (!texture) loadImageAsTexture(imageURI);
     else updateTexture(imageURI);
   }, [root, device, imageURI]);
@@ -270,10 +251,10 @@ export default function HomeScreen() {
       <View
         style={{ flex: 1, paddingTop: insets.top }}
         onTouchStart={(ev) => {
-          console.log(rippleValues.center, "rippleValues");
           setShowInteractableUI(false);
         }}
         onTouchEnd={(ev) => {
+          // takeSnapshot();
           if (resetInteractibilityRef.current)
             clearTimeout(resetInteractibilityRef.current);
 
@@ -326,9 +307,28 @@ export default function HomeScreen() {
               );
             })}
           </ScrollView>
-          {/* <View>
-            <MessageComponent message="mreow" isNewestMessage={true} />
-          </View> */}
+          {/* <FlatList
+            style={[
+              styles.messageHistoryContainer,
+              {
+                position: "relative",
+                zIndex:
+                  showInteractableUI || showInteractableScrollView ? 1 : 0,
+              },
+            ]}
+            data={messageHistory}
+            renderItem={(e) => {
+              return e.index === messageHistory.length - 1 ? (
+                <MessageComponent
+                  message={e.item}
+                  key={e.index}
+                  isNewestMessage={true}
+                />
+              ) : (
+                <MessageComponent message={e.item} key={e.index} />
+              );
+            }}
+          ></FlatList> */}
 
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -362,6 +362,7 @@ export default function HomeScreen() {
                     addMessage,
                     setShowMessagesForSnapping
                   );
+                  // setTimeout(() => setShowMessagesForSnapping(false), 20);
                 }}
               >
                 <Text style={styles.sendButtonText}>Send</Text>
@@ -374,7 +375,7 @@ export default function HomeScreen() {
           style={[
             { aspectRatio: wWidth / wHeight },
             styles.absolute,
-            showMessagesForSnapping ? { opacity: 0.0 } : { opacity: 1.0 },
+            // showMessagesForSnapping ? { opacity: 0.0 } : { opacity: 1.0 },
           ]}
           transparent
         />
@@ -469,7 +470,6 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: "#2F2A47",
     marginBottom: 60,
-    zIndex: 0,
   },
   sendMessageBar: {
     width: "100%",
