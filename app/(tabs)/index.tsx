@@ -1,9 +1,10 @@
-import { reactLogoImage, screenImage } from "@/assets/imgExports";
+import { reactLogoImage } from "@/assets/imgExports";
 import MessageComponent from "@/components/MessageComponent";
 import { getOrInitRoot } from "@/scripts/roots";
 import { textureExampleFragment } from "@/shaders/fragment/textureExample";
 import * as utils from "@/shaders/utils/utils";
 import textureVertex from "@/shaders/vertex/textureVertex";
+import { PortalProvider } from "@gorhom/portal";
 import { Asset } from "expo-asset";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -33,12 +34,30 @@ const rippleValues = {
 };
 
 export default function HomeScreen() {
-  const [messageHistory, setMessageHistory] = useState<string[]>([]);
+  const [messageHistory, setMessageHistory] = useState<string[]>([
+    "a",
+    "a",
+    "a",
+    "a",
+    "a",
+    "a",
+    "a",
+    "a",
+    "a",
+    "a",
+    "a",
+    "a",
+  ]);
   const [inputValue, setInputValue] = useState<string>("");
   const inputRef = useRef<TextInput | null>(null);
   const sendButtonRef = useRef<View | null>(null);
+  const scrollViewRef = useRef<ScrollView | null>(null);
   const timeStart = performance.now();
   const [showInteractableUI, setShowInteractableUI] = useState<boolean>(true);
+  const [showInteractableScrollView, setShowInteractableScrollView] =
+    useState<boolean>(true);
+  const [showMessagesForSnapping, setShowMessagesForSnapping] =
+    useState<boolean>(false);
   const resetInteractibilityRef = useRef<number>(null);
   const insets = useSafeAreaInsets();
 
@@ -48,7 +67,6 @@ export default function HomeScreen() {
 
   //shader setup
   const frameRef = useRef<number | null>(null);
-  const panResponder = utils.useTouchAndDragPanResponder(fingerPositionValue);
 
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   const { device = null } = useDevice();
@@ -71,7 +89,7 @@ export default function HomeScreen() {
         format: "png",
         // quality: 0.5,
       });
-      console.log("snapshot: SUCCESS");
+      // console.log("snapshot: SUCCESS");
       setImageURI(uri);
     } catch (error) {
       console.error("snapshot: FAILED\n", error);
@@ -81,36 +99,15 @@ export default function HomeScreen() {
   const loadImageAsTexture = async (imageURI: string) => {
     if (!root) return;
 
-    const asset = Asset.fromModule(screenImage);
-    await asset.downloadAsync();
-    const fileUri = asset.localUri || asset.uri;
-
-    console.log("uri", fileUri, imageURI);
-    console.log("screenImage: ", screenImage);
-
     const ast = Asset.fromURI(imageURI);
-    await asset.downloadAsync();
-    const brokenFileUri = ast.localUri || asset.uri;
+    await ast.downloadAsync();
+    const brokenFileUri = ast.localUri || ast.uri;
 
-    console.log("broken asset URI: ", brokenFileUri);
-
-    const response = await fetch(fileUri);
-    const brokenResponse = await fetch(brokenFileUri);
-
+    const response = await fetch(brokenFileUri);
     const blob = await response.blob();
-    const brokenBlob = await brokenResponse.blob();
+    const imageBitmap = await createImageBitmap(blob);
 
-    console.log(blob.type, brokenBlob.type);
-
-    // const imageBitmap = await createImageBitmap(blob);
-    const brokenImageBitmap = await createImageBitmap(brokenBlob);
-
-    console.log("bitmap machen");
-
-    const [imgWidth, imgHeight] = [
-      brokenImageBitmap.width,
-      brokenImageBitmap.height,
-    ];
+    const [imgWidth, imgHeight] = [imageBitmap.width, imageBitmap.height];
 
     const texture = root["~unstable"]
       .createTexture({
@@ -124,7 +121,7 @@ export default function HomeScreen() {
 
     setTexture(texture);
     root.device.queue.copyExternalImageToTexture(
-      { source: brokenImageBitmap },
+      { source: imageBitmap },
       { texture: root.unwrap(texture) },
       [imgWidth, imgHeight]
     );
@@ -132,15 +129,38 @@ export default function HomeScreen() {
     console.log("rawr");
   };
 
+  const updateTexture = async (imageURI: string) => {
+    if (!root || !texture) return;
+
+    const ast = Asset.fromURI(imageURI);
+    await ast.downloadAsync();
+    const brokenFileUri = ast.localUri || ast.uri;
+
+    const response = await fetch(brokenFileUri);
+    const blob = await response.blob();
+    const imageBitmap = await createImageBitmap(blob);
+
+    root.device.queue.copyExternalImageToTexture(
+      { source: imageBitmap },
+      { texture: root.unwrap(texture) },
+      [imageBitmap.width, imageBitmap.height]
+    );
+  };
+
   useEffect(() => {
     takeSnapshot();
-  }, [root, device, context]);
+  }, [root, device, context, messageHistory]);
 
   useEffect(() => {
     if (!root || !device || !imageURI) return;
     console.log(imageURI);
-    loadImageAsTexture(imageURI);
+    if (!texture) loadImageAsTexture(imageURI);
+    else updateTexture(imageURI);
   }, [root, device, imageURI]);
+
+  useEffect(() => {
+    setShowMessagesForSnapping(false);
+  }, [texture]);
 
   useEffect(() => {
     if (!root || !device || !context || !texture) {
@@ -237,8 +257,6 @@ export default function HomeScreen() {
 
       context.present();
       frameRef.current = requestAnimationFrame(render);
-      // takeSnapshot();
-      // if (imageURI) loadImageAsTexture(root, setTexture, imageURI);
     };
 
     frameRef.current = requestAnimationFrame(render);
@@ -248,84 +266,120 @@ export default function HomeScreen() {
   }, [root, device, context, presentationFormat, texture, wWidth, wHeight]);
 
   return (
-    <View
-      style={{ flex: 1, paddingTop: insets.top }}
-      onTouchStart={(ev) => {
-        fingerPositionValue[0] = ev.nativeEvent.pageX / wWidth;
-        fingerPositionValue[1] = ev.nativeEvent.pageY / wHeight;
-        console.log(rippleValues.center, "rippleValues");
-        setShowInteractableUI(false);
-
-        if (resetInteractibilityRef.current)
-          clearTimeout(resetInteractibilityRef.current);
-        resetInteractibilityRef.current = setTimeout(
-          () => setShowInteractableUI(true),
-          1500
-        );
-      }}
-      {...panResponder.panHandlers}
-    >
-      <View ref={viewRef} style={styles.mainContainer}>
-        <View style={styles.rowContainer}>
-          <View style={styles.circle}></View>
-          <Text style={styles.textWhite}>mreow</Text>
-        </View>
-
-        <Image
-          source={reactLogoImage}
-          style={{ width: 200, height: 200 }}
-          resizeMode="cover"
-        />
-
-        <ScrollView style={styles.messageHistoryContainer}>
-          {messageHistory.map((message, i) => {
-            return <MessageComponent key={i} message={message} />;
-          })}
-        </ScrollView>
-
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ width: "100%", position: "absolute", bottom: 0 }}
-        >
-          <View style={styles.sendMessageBar}>
-            <TextInput
-              ref={inputRef}
-              value={inputValue}
-              onChangeText={setInputValue}
-              placeholder="Type a message..."
-              placeholderTextColor="#D8D8D8"
-              style={[
-                styles.inputField,
-                showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
-              ]}
-              showSoftInputOnFocus={true}
-              onFocus={() => inputRef.current?.focus()}
-            />
-            <TouchableOpacity
-              ref={sendButtonRef}
-              style={[
-                styles.sendButton,
-                showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
-              ]}
-              onPress={() => {
-                handleSendMessage(inputValue, setInputValue, addMessage);
-              }}
-            >
-              <Text style={styles.sendButtonText}>Send</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
-      <Canvas
-        ref={ref}
-        style={{
-          aspectRatio: wWidth / (wHeight - insets.top),
-          ...styles.absolute,
-          top: insets.top,
+    <PortalProvider>
+      <View
+        style={{ flex: 1, paddingTop: insets.top }}
+        onTouchStart={(ev) => {
+          console.log(rippleValues.center, "rippleValues");
+          setShowInteractableUI(false);
         }}
-        transparent
-      />
-    </View>
+        onTouchEnd={(ev) => {
+          if (resetInteractibilityRef.current)
+            clearTimeout(resetInteractibilityRef.current);
+
+          setShowInteractableScrollView(false);
+          fingerPositionValue[0] = ev.nativeEvent.pageX / wWidth;
+          fingerPositionValue[1] = ev.nativeEvent.pageY / wHeight;
+
+          resetInteractibilityRef.current = setTimeout(() => {
+            setShowInteractableUI(true);
+            setShowInteractableScrollView(true);
+          }, 1500);
+        }}
+        ref={viewRef}
+      >
+        <View style={styles.mainContainer}>
+          <View style={styles.rowContainer}>
+            <View style={styles.circle}></View>
+            <Text style={styles.textWhite}>mreow</Text>
+          </View>
+
+          <Image
+            source={reactLogoImage}
+            style={{ width: 200, height: 200 }}
+            resizeMode="cover"
+          />
+
+          <ScrollView
+            style={[
+              styles.messageHistoryContainer,
+              {
+                position: "relative",
+                zIndex:
+                  showInteractableUI || showInteractableScrollView ? 1 : 0,
+              },
+            ]}
+            ref={scrollViewRef}
+            onContentSizeChange={(width, height) =>
+              scrollViewRef.current?.scrollToEnd({ animated: false })
+            }
+          >
+            {messageHistory.map((message, i) => {
+              return i === messageHistory.length - 1 ? (
+                <MessageComponent
+                  message={message}
+                  key={i}
+                  isNewestMessage={true}
+                />
+              ) : (
+                <MessageComponent message={message} key={i} />
+              );
+            })}
+          </ScrollView>
+          {/* <View>
+            <MessageComponent message="mreow" isNewestMessage={true} />
+          </View> */}
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ width: "100%", position: "absolute", bottom: 0 }}
+          >
+            <View style={styles.sendMessageBar}>
+              <TextInput
+                ref={inputRef}
+                value={inputValue}
+                onChangeText={setInputValue}
+                placeholder="Type a message..."
+                placeholderTextColor="#D8D8D8"
+                style={[
+                  styles.inputField,
+                  showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
+                ]}
+                showSoftInputOnFocus={true}
+                onFocus={() => inputRef.current?.focus()}
+              />
+              <TouchableOpacity
+                ref={sendButtonRef}
+                style={[
+                  styles.sendButton,
+                  showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
+                ]}
+                onPressIn={() => {
+                  setShowMessagesForSnapping(true);
+                  handleSendMessage(
+                    inputValue,
+                    setInputValue,
+                    addMessage,
+                    setShowMessagesForSnapping
+                  );
+                }}
+              >
+                <Text style={styles.sendButtonText}>Send</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+        <Canvas
+          ref={ref}
+          style={[
+            { aspectRatio: wWidth / wHeight },
+            styles.absolute,
+            showMessagesForSnapping ? { opacity: 0.0 } : { opacity: 1.0 },
+          ]}
+          transparent
+        />
+      </View>
+    </PortalProvider>
   );
 }
 
@@ -357,11 +411,18 @@ const createBuffers = (
 const handleSendMessage = (
   inputValue: string,
   setInputValue: Function,
-  addMessage: Function
+  addMessage: Function,
+  setShowMessagesForSnapping: Function
 ) => {
-  if (inputValue.trim() === "") return;
-  addMessage(inputValue.trim());
+  if (inputValue.trim() === "") {
+    setShowMessagesForSnapping(false);
+    return;
+  }
+  const input = inputValue.trim();
   setInputValue("");
+  setTimeout(() => {
+    addMessage(input);
+  }, 10);
 };
 
 const styles = StyleSheet.create({
@@ -373,6 +434,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: "100%",
     opacity: 1.0,
+    isolation: "isolate",
   },
   mainContainer: {
     flex: 1,
@@ -407,6 +469,7 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: "#2F2A47",
     marginBottom: 60,
+    zIndex: 0,
   },
   sendMessageBar: {
     width: "100%",
@@ -417,7 +480,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   inputField: {
-    zIndex: 1,
+    zIndex: 2,
     flex: 1,
     height: 40,
     borderColor: "#564F7A",
@@ -430,7 +493,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   sendButton: {
-    zIndex: 1,
+    zIndex: 2,
     marginRight: 10,
     padding: 10,
     backgroundColor: "#565E75",

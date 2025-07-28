@@ -3,11 +3,22 @@ import { StyleSheet, Text, View } from "react-native";
 
 interface MessageComponentProps {
   message: string;
+  isNewestMessage?: boolean;
 }
 
-const MessageComponent: React.FC<MessageComponentProps> = ({ message }) => {
+const MessageComponent: React.FC<MessageComponentProps> = ({
+  message,
+  isNewestMessage,
+}) => {
+  console.log(isNewestMessage);
+
   return (
-    <View style={styles.messageContainer}>
+    <View
+      style={[
+        styles.messageContainer,
+        isNewestMessage ? { zIndex: 2 } : { zIndex: 0 },
+      ]}
+    >
       <Text style={styles.messageText}>{message}</Text>
     </View>
   );
