@@ -1,3 +1,4 @@
+import { backgroundImage } from "@/assets/imgExports";
 import Avatar from "@/components/Avatar";
 import MessageComponent from "@/components/MessageComponent";
 import NewestMessage from "@/components/NewestMessage";
@@ -10,7 +11,7 @@ import { Asset } from "expo-asset";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
-  findNodeHandle,
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -81,7 +82,8 @@ export default function HomeScreen() {
   const rippleCoordsShared = useSharedValue({ x: 0, y: 0 });
 
   //change it so it fetches the resource earlier
-  const [avatarURI, setAvatarURI] = useState<string | null>(); // placeholder
+  const [avatarURI, setAvatarURI] = useState<string | null>();
+  // const [backgroundImage, setBackgroundImage] = useState<string | null>();
 
   const onContentSizeChange = useCallback((width: number, height: number) => {
     contentHeight.value = height;
@@ -114,7 +116,18 @@ export default function HomeScreen() {
     isOwn.value = !isOwn.value;
     setTimeout(() => {
       addMessage(input);
-    }, 10);
+    }, 30);
+
+    const estimatedRippleY =
+      1 +
+      (contentHeight.value - scrollViewHeight.value - scrollY.value - 400) /
+        wHeight;
+    const estimatedRippleX = isOwn.value ? 93 / wWidth : 392 / wWidth;
+
+    setTimeout(() => {
+      fingerPositionValue[0] = estimatedRippleX;
+      fingerPositionValue[1] = estimatedRippleY;
+    }, 300);
   }, [inputValue, addMessage]);
 
   const takeSnapshot = useCallback(async () => {
@@ -185,20 +198,20 @@ export default function HomeScreen() {
     [root, texture]
   );
 
-  // useAnimatedReaction(
-  //   () => rippleCoordsShared.value,
-  //   (currentValue, previousValue) => {
-  //     fingerPositionValue[0] = currentValue.x;
-  //     fingerPositionValue[1] = currentValue.y;
-  //   }
-  // );
-
   useEffect(() => {
-    const loadAvatar = async () => {
+    const loadAvatarAndBackground = async () => {
       try {
         const avatarUrl = "https://avatar.iran.liara.run/public";
         const asset = Asset.fromURI(avatarUrl);
         await asset.downloadAsync();
+
+        // const background = Asset.fromModule(
+        //   "@/assets/images/messengerBackground"
+        // );
+        // await background.downloadAsync();
+        // setBackgroundImage(background.localUri || background.uri);
+
+        // console.log(background);
 
         setAvatarURI(asset.localUri || asset.uri);
         avatarUriShared.value = asset.localUri || asset.uri;
@@ -207,7 +220,7 @@ export default function HomeScreen() {
         setAvatarURI(null);
       }
     };
-    loadAvatar();
+    loadAvatarAndBackground();
   }, []);
 
   useEffect(() => {
@@ -328,22 +341,21 @@ export default function HomeScreen() {
     <View
       style={{ flex: 1, paddingTop: insets.top }}
       onTouchStart={(ev) => {
-        setShowInteractableUI(false);
+        // setShowInteractableUI(false);
       }}
       onTouchEnd={(ev) => {
-        // takeSnapshot();
         if (resetInteractibilityRef.current)
           clearTimeout(resetInteractibilityRef.current);
 
-        setShowInteractableScrollView(false);
+        // setShowInteractableScrollView(false);
 
-        if (
-          (ev.nativeEvent.target as unknown as number) !==
-          findNodeHandle(sendButtonRef.current)
-        ) {
-          fingerPositionValue[0] = ev.nativeEvent.pageX / wWidth;
-          fingerPositionValue[1] = ev.nativeEvent.pageY / wHeight;
-        }
+        // if (
+        //   (ev.nativeEvent.target as unknown as number) !==
+        //   findNodeHandle(sendButtonRef.current)
+        // ) {
+        //   fingerPositionValue[0] = ev.nativeEvent.pageX / wWidth;
+        //   fingerPositionValue[1] = ev.nativeEvent.pageY / wHeight;
+        // }
 
         resetInteractibilityRef.current = setTimeout(() => {
           setShowInteractableUI(true);
@@ -381,100 +393,115 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Animated.ScrollView
-          style={[
-            styles.messageHistoryContainer,
-            {
-              zIndex:
-                isSnapshotBeingTaken ||
-                showInteractableUI ||
-                showInteractableScrollView
-                  ? 1
-                  : 0,
-            },
-          ]}
-          ref={scrollViewRef}
-          onContentSizeChange={onContentSizeChange}
-          onScroll={onScroll}
-          onLayout={onLayout}
-          scrollEventThrottle={16}
+        <ImageBackground
+          style={{ flex: 1, height: "100%" }}
+          source={backgroundImage}
+          resizeMode="cover"
         >
-          {messageHistory.map((message, i) => {
-            return (
-              <MessageComponent
-                message={message}
-                key={i}
-                isOwn={i % 2 === 0}
-                avatarUri={avatarURI ? avatarURI : undefined}
-              />
-            );
-          })}
-        </Animated.ScrollView>
-        {messageHistory.length > 0 && !isSnapshotBeingTaken && (
-          <NewestMessage
-            message={newestMessageValue}
-            scrollViewHeight={scrollViewHeight}
-            scrollY={scrollY}
-            contentHeight={contentHeight}
-            isOwn={isOwn}
-            avatarUri={avatarUriShared}
-            rippleCoordsShared={rippleCoordsShared}
-          />
-        )}
+          <Animated.ScrollView
+            style={[
+              styles.messageHistoryContainer,
+              {
+                zIndex:
+                  isSnapshotBeingTaken ||
+                  showInteractableUI ||
+                  showInteractableScrollView
+                    ? 1
+                    : 0,
+              },
+            ]}
+            ref={scrollViewRef}
+            onContentSizeChange={onContentSizeChange}
+            onScroll={onScroll}
+            onLayout={onLayout}
+            scrollEventThrottle={16}
+          >
+            {messageHistory.map((message, i) => {
+              return (
+                <MessageComponent
+                  message={message}
+                  key={i}
+                  isOwn={i % 2 === 0}
+                  avatarUri={avatarURI ? avatarURI : undefined}
+                />
+              );
+            })}
+          </Animated.ScrollView>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ width: "100%", position: "absolute", bottom: 0 }}
-        >
-          <View style={styles.sendMessageBar}>
-            <TextInput
-              ref={inputRef}
-              value={inputValue}
-              onChangeText={setInputValue}
-              placeholder="Type a message..."
-              placeholderTextColor="#D8D8D8"
-              style={[
-                styles.inputField,
-                showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
-              ]}
-              showSoftInputOnFocus={true}
-              onFocus={() => inputRef.current?.focus()}
+          {messageHistory.length > 0 && !isSnapshotBeingTaken && (
+            <NewestMessage
+              message={newestMessageValue}
+              scrollViewHeight={scrollViewHeight}
+              scrollY={scrollY}
+              contentHeight={contentHeight}
+              isOwn={isOwn}
+              avatarUri={avatarUriShared}
+              rippleCoordsShared={rippleCoordsShared}
             />
-            <TouchableOpacity
-              ref={sendButtonRef}
-              style={[
-                styles.sendButton,
-                showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
-              ]}
-              onPressIn={(e) => {
-                setIsSnapshotBeingTaken(true);
-                handleSendMessage();
+          )}
 
-                // setTimeout(() => {
-                //   if (
-                //     rippleCoordsShared.value.x !== 0 &&
-                //     rippleCoordsShared.value.y !== 0
-                //   ) {
-                //     fingerPositionValue[0] =
-                //       rippleCoordsShared.value.x / wWidth;
-                //     fingerPositionValue[1] =
-                //       rippleCoordsShared.value.y / wHeight;
-                //   }
-                //   console.log(rippleCoordsShared.value);
-                // }, 10);
-              }}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={118}
+          >
+            <View
+              style={[
+                styles.sendMessageBar,
+                showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
+                isSnapshotBeingTaken ? { bottom: 0 } : {},
+              ]}
             >
-              <Text style={styles.sendButtonText}>Send</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
+              <TextInput
+                ref={inputRef}
+                value={inputValue}
+                onChangeText={setInputValue}
+                placeholder="Type a message..."
+                placeholderTextColor="#D8D8D8"
+                style={[
+                  styles.inputField,
+                  showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
+                ]}
+                showSoftInputOnFocus={true}
+                onFocus={() => inputRef.current?.focus()}
+              />
+              <TouchableOpacity
+                ref={sendButtonRef}
+                style={[
+                  styles.sendButton,
+                  showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
+                ]}
+                onPressIn={(e) => {
+                  setShowInteractableUI(false);
+                  setShowInteractableScrollView(false);
+                  setIsSnapshotBeingTaken(true);
+                  handleSendMessage();
+
+                  // setTimeout(() => {
+                  //   if (
+                  //     rippleCoordsShared.value.x !== 0 &&
+                  //     rippleCoordsShared.value.y !== 0
+                  //   ) {
+                  //     fingerPositionValue[0] =
+                  //       rippleCoordsShared.value.x / wWidth;
+                  //     fingerPositionValue[1] =
+                  //       rippleCoordsShared.value.y / wHeight;
+                  //   }
+                  //   console.log(rippleCoordsShared.value);
+                  // }, 30);
+                }}
+              >
+                <Text style={styles.sendButtonText}>Send</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </ImageBackground>
       </View>
       <Canvas
         ref={ref}
         style={[
           {
             aspectRatio: wWidth / wHeight,
-            opacity: isSnapshotBeingTaken ? 0 : 1,
+            opacity: isSnapshotBeingTaken || showInteractableUI ? 0 : 1,
           },
           styles.absolute,
         ]}
@@ -557,11 +584,12 @@ const styles = StyleSheet.create({
   messageHistoryContainer: {
     flex: 1,
     width: "100%",
-    backgroundColor: "#ffffff",
+    // backgroundColor: "#ffffff",
     paddingTop: 10,
     marginBottom: 60,
   },
   sendMessageBar: {
+    // marginTop: -60,
     width: "100%",
     backgroundColor: "#f0f0f0",
     flexDirection: "row",

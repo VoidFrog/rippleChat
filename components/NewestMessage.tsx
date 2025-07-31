@@ -99,8 +99,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   ownBubble: {
-    // backgroundColor: "#0084ff",
-    backgroundColor: "#6f3a7bff",
+    backgroundColor: "#0084ff",
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     borderBottomLeftRadius: 18,
