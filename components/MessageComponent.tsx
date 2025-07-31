@@ -1,38 +1,96 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Dimensions, StyleSheet, Text, View } from "react-native";
+import Avatar from "./Avatar";
 
 interface MessageComponentProps {
   message: string;
-  isNewestMessage?: boolean;
+  isOwn: boolean;
+  avatarUri?: string;
 }
+
+const MAX_BUBBLE_WIDTH = Dimensions.get("window").width * 0.75;
 
 const MessageComponent: React.FC<MessageComponentProps> = ({
   message,
-  isNewestMessage,
+  isOwn,
+  avatarUri,
 }) => {
   return (
     <View
       style={[
-        styles.messageContainer,
-        isNewestMessage ? { zIndex: 2 } : { zIndex: 0 },
+        styles.messageWrapper,
+        isOwn ? styles.ownWrapper : styles.otherWrapper,
       ]}
     >
-      <Text style={styles.messageText}>{message}</Text>
+      {/* Show avatar only for others */}
+      {!isOwn && avatarUri && <Avatar uri={avatarUri} />}
+
+      <View
+        style={[styles.bubble, isOwn ? styles.ownBubble : styles.otherBubble]}
+      >
+        <Text
+          style={[
+            styles.messageText,
+            isOwn ? styles.ownText : styles.otherText,
+          ]}
+        >
+          {message}
+        </Text>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  messageContainer: {
-    padding: 10,
-    marginVertical: 5,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 10,
-    marginHorizontal: 10,
+  messageWrapper: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginVertical: 6,
+    paddingHorizontal: 10,
+  },
+  ownWrapper: {
+    justifyContent: "flex-end",
+    alignSelf: "flex-end",
+  },
+  otherWrapper: {
+    justifyContent: "flex-start",
+    alignSelf: "flex-start",
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 6,
+  },
+  bubble: {
+    maxWidth: MAX_BUBBLE_WIDTH,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  ownBubble: {
+    backgroundColor: "#0084ff",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 4,
+  },
+  otherBubble: {
+    backgroundColor: "#e4e6eb",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+    borderBottomLeftRadius: 4,
   },
   messageText: {
-    color: "#333",
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  ownText: {
+    color: "#ffffff",
+  },
+  otherText: {
+    color: "#050505",
   },
 });
-
-export default MessageComponent;
+export default React.memo(MessageComponent);
