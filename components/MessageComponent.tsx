@@ -15,12 +15,12 @@ const MessageComponent: React.FC<MessageComponentProps> = ({
   message,
   isOwn,
   avatarUri,
-  isLast = false,
+  isLast,
 }) => {
   return (
     <View
       style={[
-        isLast ? { opacity: 1 } : {},
+        isLast ? { opacity: 0 } : { opacity: 1 },
         styles.messageWrapper,
         isOwn ? styles.ownWrapper : styles.otherWrapper,
       ]}

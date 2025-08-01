@@ -454,7 +454,7 @@ export default function HomeScreen() {
                   message={message}
                   key={i}
                   isOwn={i % 2 === 0}
-                  isLast={i === messageHistory.length - 1}
+                  isLast={i > 3 && i === messageHistory.length - 1}
                   avatarUri={avatarURI ? avatarURI : undefined}
                 />
               );
