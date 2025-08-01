@@ -16,7 +16,7 @@ export const textureExampleFragment = tgpu["~unstable"].fragmentFn({
   const ripple = utils.rippleBindGroupLayout.$.ripple;
 
   const elapsedTime = time - ripple.timeStart;
-  const speed = d.f32(1.8);
+  const speed = d.f32(2.2);
   const waveWidth = 0.3;
   const currentRadius = speed * elapsedTime;
   const fadeFactor = d.f32(

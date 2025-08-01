@@ -13,6 +13,7 @@ import {
   Dimensions,
   ImageBackground,
   KeyboardAvoidingView,
+  LogBox,
   Platform,
   StyleSheet,
   Text,
@@ -37,9 +38,15 @@ const rippleValues = {
   r: 0.4,
   center: [0, 0],
 };
+LogBox.ignoreAllLogs();
 
 export default function HomeScreen() {
-  const [messageHistory, setMessageHistory] = useState<string[]>([]);
+  const [messageHistory, setMessageHistory] = useState<string[]>([
+    "Hey, did you know you can run shaders directly in React Native?",
+    "Yeah, but it's complicated to set up, isn't it?",
+    "Not really, you just need to use typeGPU and everything becomes much easier.",
+    "Seems farfetched.",
+  ]);
   const [inputValue, setInputValue] = useState<string>("");
   const inputRef = useRef<TextInput | null>(null);
   const sendButtonRef = useRef<View | null>(null);
@@ -80,6 +87,7 @@ export default function HomeScreen() {
   const isOwn = useSharedValue(false);
   const avatarUriShared = useSharedValue("");
   const rippleCoordsShared = useSharedValue({ x: 0, y: 0 });
+  const noRipple = useRef(true);
 
   //change it so it fetches the resource earlier
   const [avatarURI, setAvatarURI] = useState<string | null>();
@@ -104,30 +112,32 @@ export default function HomeScreen() {
   });
 
   const handleSendMessage = useCallback(() => {
-    console.log(inputValue, "inputValue");
-    const input = inputValue.trim();
-    if (input === "") {
-      setIsSnapshotBeingTaken(false);
-      return;
-    }
+    if (newestMessageValue.value === "") return;
 
-    setInputValue("");
-    newestMessageValue.value = input;
     isOwn.value = !isOwn.value;
-    setTimeout(() => {
-      addMessage(input);
-    }, 30);
+    addMessage(newestMessageValue.value);
 
-    const estimatedRippleY =
-      1 +
-      (contentHeight.value - scrollViewHeight.value - scrollY.value - 400) /
-        wHeight;
-    const estimatedRippleX = isOwn.value ? 93 / wWidth : 392 / wWidth;
-
+    if (noRipple.current) return;
     setTimeout(() => {
-      fingerPositionValue[0] = estimatedRippleX;
-      fingerPositionValue[1] = estimatedRippleY;
-    }, 300);
+      // const estimatedRippleY =
+      //   1 +
+      //   (contentHeight.value - scrollViewHeight.value - scrollY.value - 400) /
+      //     wHeight;
+      // const estimatedRippleX = isOwn.value ? 93 / wWidth : 392 / wWidth;
+      // fingerPositionValue[0] = estimatedRippleX;
+      // fingerPositionValue[1] = estimatedRippleY;
+      setShowInteractableUI(false);
+      setShowInteractableScrollView(false);
+      fingerPositionValue[0] = rippleCoordsShared.value.x / wWidth;
+      fingerPositionValue[1] = rippleCoordsShared.value.y / wHeight;
+
+      console.log("changed to false");
+      setTimeout(() => {
+        console.log("changing to true");
+        setShowInteractableUI(true);
+        setShowInteractableScrollView(true);
+      }, 1000);
+    }, 450);
   }, [inputValue, addMessage]);
 
   const takeSnapshot = useCallback(async () => {
@@ -205,34 +215,57 @@ export default function HomeScreen() {
         const asset = Asset.fromURI(avatarUrl);
         await asset.downloadAsync();
 
-        // const background = Asset.fromModule(
-        //   "@/assets/images/messengerBackground"
-        // );
-        // await background.downloadAsync();
-        // setBackgroundImage(background.localUri || background.uri);
-
-        // console.log(background);
-
         setAvatarURI(asset.localUri || asset.uri);
         avatarUriShared.value = asset.localUri || asset.uri;
       } catch (error) {
         console.warn("failed to load avatar image", error);
         setAvatarURI(null);
       }
+      setIsSnapshotBeingTaken(false);
     };
     loadAvatarAndBackground();
   }, []);
 
   useEffect(() => {
     takeSnapshot();
-  }, [root, device, context, messageHistory, takeSnapshot, avatarURI]);
+  }, [root, device, context, takeSnapshot, avatarURI]);
 
   useEffect(() => {
     if (!root || !device || !imageURI) return;
 
+    handleSendMessage();
     if (!texture) loadImageAsTexture(imageURI);
     else updateTexture(imageURI);
   }, [root, device, imageURI, texture]);
+
+  useEffect(() => {
+    if (!root || !device || !context) {
+      return;
+    }
+
+    const conversationMessages = [
+      "Yea? check THIS out.",
+      "What's just happened...?",
+      "TypeGPU 😎😎.",
+    ];
+    let i = 0;
+    const delay = 3000;
+
+    setTimeout(() => {
+      for (const message of conversationMessages) {
+        setTimeout(() => {
+          setIsSnapshotBeingTaken(true);
+
+          noRipple.current = !noRipple.current;
+          newestMessageValue.value = message;
+          setTimeout(() => {
+            takeSnapshot();
+          }, 40);
+        }, i * delay);
+        i += 1;
+      }
+    }, 2000);
+  }, [root, device, context, takeSnapshot]);
 
   useEffect(() => {
     if (!root || !device || !context || !texture) {
@@ -360,7 +393,7 @@ export default function HomeScreen() {
         resetInteractibilityRef.current = setTimeout(() => {
           setShowInteractableUI(true);
           setShowInteractableScrollView(true);
-        }, 1000);
+        }, 1200);
       }}
       ref={viewRef}
     >
@@ -403,9 +436,8 @@ export default function HomeScreen() {
               styles.messageHistoryContainer,
               {
                 zIndex:
-                  isSnapshotBeingTaken ||
-                  showInteractableUI ||
-                  showInteractableScrollView
+                  isSnapshotBeingTaken &&
+                  (showInteractableUI || showInteractableScrollView)
                     ? 1
                     : 0,
               },
@@ -422,23 +454,26 @@ export default function HomeScreen() {
                   message={message}
                   key={i}
                   isOwn={i % 2 === 0}
+                  isLast={i === messageHistory.length - 1}
                   avatarUri={avatarURI ? avatarURI : undefined}
                 />
               );
             })}
           </Animated.ScrollView>
 
-          {messageHistory.length > 0 && !isSnapshotBeingTaken && (
-            <NewestMessage
-              message={newestMessageValue}
-              scrollViewHeight={scrollViewHeight}
-              scrollY={scrollY}
-              contentHeight={contentHeight}
-              isOwn={isOwn}
-              avatarUri={avatarUriShared}
-              rippleCoordsShared={rippleCoordsShared}
-            />
-          )}
+          {messageHistory.length > 0 &&
+            !isSnapshotBeingTaken &&
+            newestMessageValue.value !== "" && (
+              <NewestMessage
+                message={newestMessageValue}
+                scrollViewHeight={scrollViewHeight}
+                scrollY={scrollY}
+                contentHeight={contentHeight}
+                isOwn={isOwn}
+                avatarUri={avatarUriShared}
+                rippleCoordsShared={rippleCoordsShared}
+              />
+            )}
 
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -471,10 +506,18 @@ export default function HomeScreen() {
                   showInteractableUI ? { zIndex: 1 } : { zIndex: 0 },
                 ]}
                 onPressIn={(e) => {
+                  const input = inputValue.trim();
+                  if (input === "") return;
+
                   setShowInteractableUI(false);
                   setShowInteractableScrollView(false);
                   setIsSnapshotBeingTaken(true);
-                  handleSendMessage();
+
+                  setInputValue("");
+                  newestMessageValue.value = input;
+                  setTimeout(() => {
+                    takeSnapshot();
+                  }, 20);
 
                   // setTimeout(() => {
                   //   if (

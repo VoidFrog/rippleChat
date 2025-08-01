@@ -6,6 +6,7 @@ interface MessageComponentProps {
   message: string;
   isOwn: boolean;
   avatarUri?: string;
+  isLast?: boolean;
 }
 
 const MAX_BUBBLE_WIDTH = Dimensions.get("window").width * 0.75;
@@ -14,10 +15,12 @@ const MessageComponent: React.FC<MessageComponentProps> = ({
   message,
   isOwn,
   avatarUri,
+  isLast = false,
 }) => {
   return (
     <View
       style={[
+        isLast ? { opacity: 1 } : {},
         styles.messageWrapper,
         isOwn ? styles.ownWrapper : styles.otherWrapper,
       ]}
