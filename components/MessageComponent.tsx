@@ -1,5 +1,9 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Dimensions, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 import Avatar from "./Avatar";
 
 interface MessageComponentProps {
@@ -17,17 +21,30 @@ const MessageComponent: React.FC<MessageComponentProps> = ({
   avatarUri,
   isLast,
 }) => {
+  const isLastShared = useSharedValue(isLast || false);
+
+  const isLastAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: isLastShared.value ? 0 : 1,
+    };
+  });
+
+  useEffect(() => {
+    setTimeout(() => {
+      isLastShared.value = false;
+    }, 1500);
+  }, []);
+
   return (
-    <View
+    <Animated.View
       style={[
-        isLast ? { opacity: 0 } : { opacity: 1 },
+        // isLast ? { opacity: 0 } : { opacity: 1 },
+        isLastAnimatedStyle,
         styles.messageWrapper,
         isOwn ? styles.ownWrapper : styles.otherWrapper,
       ]}
     >
-      {/* Show avatar only for others */}
       {!isOwn && avatarUri && <Avatar uri={avatarUri} />}
-
       <View
         style={[styles.bubble, isOwn ? styles.ownBubble : styles.otherBubble]}
       >
@@ -40,7 +57,7 @@ const MessageComponent: React.FC<MessageComponentProps> = ({
           {message}
         </Text>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 

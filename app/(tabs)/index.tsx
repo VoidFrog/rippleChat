@@ -227,13 +227,15 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    takeSnapshot();
-  }, [root, device, context, takeSnapshot, avatarURI]);
+    const a = async () => {
+      await takeSnapshot();
+    };
+    a();
+  }, [root, device, context, takeSnapshot, avatarURI, messageHistory]);
 
   useEffect(() => {
     if (!root || !device || !imageURI) return;
 
-    handleSendMessage();
     if (!texture) loadImageAsTexture(imageURI);
     else updateTexture(imageURI);
   }, [root, device, imageURI, texture]);
@@ -254,13 +256,12 @@ export default function HomeScreen() {
     setTimeout(() => {
       for (const message of conversationMessages) {
         setTimeout(() => {
-          setIsSnapshotBeingTaken(true);
-
           noRipple.current = !noRipple.current;
           newestMessageValue.value = message;
+          setIsSnapshotBeingTaken(true);
           setTimeout(() => {
-            takeSnapshot();
-          }, 40);
+            handleSendMessage();
+          }, 30);
         }, i * delay);
         i += 1;
       }
